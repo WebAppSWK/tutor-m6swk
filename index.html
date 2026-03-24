@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบวิเคราะห์ข้อมูลทางวิชาการ ม.6 - สันป่าตองวิทยาคม</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f1f5f9; color: #334155; }
+        
+        .chart-container { position: relative; width: 100%; height: 320px; max-height: 400px; margin: 0 auto; }
+        .radar-container { position: relative; width: 100%; height: 320px; max-width: 400px; margin: 0 auto; }
+        
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+        
+        .dropdown-menu { display: none; position: absolute; top: 110%; left: 0; min-width: 240px; background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 100; max-height: 300px; overflow-y: auto; }
+        .dropdown.active .dropdown-menu { display: block; animation: fadeIn 0.2s ease-out; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* จัดการสไตล์ข้อความจาก AI */
+        .ai-content h1 { font-size: 1.5rem; font-weight: 800; color: #f59e0b; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .ai-content h2 { font-size: 1.25rem; font-weight: 700; color: #fbbf24; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+        .ai-content h3 { font-size: 1.125rem; font-weight: 600; color: #c7d2fe; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .ai-content p { margin-bottom: 1rem; line-height: 1.7; color: #e0e7ff; }
+        .ai-content strong { color: #fde68a; font-weight: 700; }
+        .ai-content ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; color: #e0e7ff; }
+        .ai-content li { margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body class="antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+    <div id="loading-screen" class="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[200] flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm text-center">
+            <div class="animate-spin rounded-full h-14 w-14 border-4 border-indigo-100 border-t-indigo-600 mb-4"></div>
+            <h2 class="text-xl font-bold text-slate-800">กำลังประมวลผลข้อมูล</h2>
+            <p id="loading-text" class="text-sm text-slate-500 mt-2">กรุณารอสักครู่...</p>
+        </div>
+    </div>
+
+    <div id="othersModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[250] hidden flex items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="othersModalBox">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-list-ul text-slate-500"></i> รูปแบบการติวอื่นๆ</h3>
+                <button onclick="closeOthersModal()" class="text-slate-400 hover:text-red-500 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar" id="othersModalContent">
+                </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 text-center">
+                <button onclick="closeOthersModal()" class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors text-sm">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 flex-shrink-0 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center">
+                    <span class="text-4xl">🏫</span>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black text-slate-900 tracking-tight">ระบบวิเคราะห์ข้อมูลทางวิชาการ</h1>
+                    <p class="text-sm font-medium text-slate-500">โรงเรียนสันป่าตองวิทยาคม | ผลการติวและคะแนนสอบ ม.6</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="conn-status" class="px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 bg-slate-100 text-slate-500">
+                    <i class="fa-solid fa-circle text-[8px]"></i> กำลังตรวจสอบ
+                </span>
+                <button onclick="fetchData(true)" class="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-all flex items-center justify-center shadow-sm" title="รีเฟรชข้อมูลล่าสุด">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="sticky top-4 z-50 glass-panel rounded-2xl shadow-sm border border-slate-200 p-4 mb-8 flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2 text-slate-700 font-bold w-full lg:w-auto">
+                <i class="fa-solid fa-filter text-indigo-500"></i> ตัวกรองข้อมูล:
+            </div>
+            
+            <div class="flex flex-col sm:flex-row w-full lg:w-auto gap-4 flex-grow justify-end">
+                <div class="dropdown relative w-full sm:w-56" id="room-dropdown">
+                    <button type="button" onclick="toggleDropdown('room-dropdown')" class="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 flex justify-between items-center hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all">
+                        <span id="room-label" class="truncate">ทุกห้อง</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </button>
+                    <div class="dropdown-menu p-2" id="room-options"></div>
+                </div>
+
+                <div class="dropdown relative w-full sm:w-72" id="project-dropdown">
+                    <button type="button" onclick="toggleDropdown('project-dropdown')" class="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 flex justify-between items-center hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all">
+                        <span id="project-label" class="truncate">ทุกโครงการ</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </button>
+                    <div class="dropdown-menu p-2" id="project-options"></div>
+                </div>
+            </div>
+            
+            <div class="w-full lg:w-auto text-right lg:pl-4 lg:border-l border-slate-200">
+                <div class="text-[10px] font-black uppercase text-slate-400 mb-0.5">จำนวนข้อมูลที่กรองได้</div>
+                <div id="filtered-count" class="text-lg font-black text-indigo-700 leading-none">0 <span class="text-sm font-bold text-slate-500">รายการ</span></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover-lift relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-blue-50 opacity-50"><i class="fa-solid fa-users text-8xl"></i></div>
+                <p class="text-xs font-black uppercase text-slate-400 tracking-wider mb-2 relative z-10">จำนวนนักเรียนที่เข้าร่วม</p>
+                <h3 class="text-4xl font-black text-slate-800 relative z-10" id="kpi-students">0</h3>
+                <p class="text-sm font-bold text-blue-600 mt-2 relative z-10" id="kpi-students-sub">จากข้อมูลที่กรอง</p>
+            </div>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover-lift relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-amber-50 opacity-50"><i class="fa-solid fa-bolt text-8xl"></i></div>
+                <p class="text-xs font-black uppercase text-slate-400 tracking-wider mb-2 relative z-10">คะแนนเฉลี่ย TGAT รวม</p>
+                <h3 class="text-4xl font-black text-slate-800 relative z-10" id="kpi-tgat">0.00</h3>
+                <p class="text-sm font-bold text-amber-500 mt-2 relative z-10">คะแนนเต็ม 100</p>
+            </div>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover-lift relative overflow-hidden">
+                <div class="absolute -right-4 -top-4 text-emerald-50 opacity-50"><i class="fa-solid fa-flask text-8xl"></i></div>
+                <p class="text-xs font-black uppercase text-slate-400 tracking-wider mb-2 relative z-10">คะแนนเฉลี่ย TPAT รวม</p>
+                <h3 class="text-4xl font-black text-slate-800 relative z-10" id="kpi-tpat">0.00</h3>
+                <p class="text-sm font-bold text-emerald-500 mt-2 relative z-10">ปรับฐานเป็นเต็ม 100 แล้ว</p>
+            </div>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover-lift relative overflow-hidden bg-gradient-to-br from-indigo-600 to-blue-700 text-white">
+                <div class="absolute -right-4 -top-4 text-white opacity-10"><i class="fa-solid fa-star text-8xl"></i></div>
+                <p class="text-xs font-black uppercase text-indigo-200 tracking-wider mb-2 relative z-10">ความพึงพอใจโดยรวม</p>
+                <h3 class="text-4xl font-black text-white relative z-10 flex items-baseline gap-2">
+                    <span id="kpi-sat">ร้อยละ 0.00</span>
+                </h3>
+                <p class="text-sm font-bold text-indigo-100 mt-2 relative z-10">เฉลี่ยจากทุกรายวิชาและหัวข้อ</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div class="flex flex-col gap-8">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex-grow">
+                    <h3 class="text-base font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-door-open text-blue-500"></i> สัดส่วนแยกตามห้อง</h3>
+                    <p class="text-xs text-slate-400 mb-4">จำแนกตามจำนวนนักเรียน</p>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="roomChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex-grow">
+                    <h3 class="text-base font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-sitemap text-indigo-500"></i> สัดส่วนโครงการติว</h3>
+                    <p class="text-xs text-slate-400 mb-4">เปรียบเทียบจำนวนคนในแต่ละโครงการ</p>
+                    <div class="chart-container" style="height: 120px;">
+                        <canvas id="projectChart"></canvas>
+                    </div>
+                    <div id="project-legend" class="mt-4 flex flex-col gap-2"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 flex flex-col gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-500"></i> สมรรถนะ TGAT</h3>
+                        <p class="text-xs text-slate-400 mb-4">วิเคราะห์จุดแข็ง-จุดอ่อน (คะแนนเต็ม 100)</p>
+                        <div class="radar-container">
+                            <canvas id="tgatChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-flask text-emerald-500"></i> ความถนัดวิชาชีพ (%)</h3>
+                        <p class="text-xs text-slate-400 mb-4" id="tpat-subtitle">คะแนน TPAT 1 เฉลี่ยจริง คือ ... (คะแนนเต็ม 300 คะแนน)</p>
+                        <div class="chart-container">
+                            <canvas id="tpatChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex-grow">
+                    <h3 class="text-base font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-ranking-star text-amber-500"></i> ผลการประเมินความพึงพอใจรายวิชา</h3>
+                    <p class="text-xs text-slate-400 mb-6">คะแนนเฉลี่ย 5 ด้านในแต่ละวิชา (เต็ม 5.0)</p>
+                    <div class="chart-container" style="height: 450px; max-height: unset;">
+                        <canvas id="satisfactionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 mb-8">
+            <h3 class="text-lg font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-heart text-pink-500"></i> รูปแบบและวิธีการติวที่นักเรียนชื่นชอบที่สุด</h3>
+            <p class="text-sm text-slate-500 mb-6">สรุปจากความคิดเห็นของนักเรียนทั้งหมดที่ตอบคำถามนี้</p>
+            <div id="tutoring-methods-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 mb-8">
+            <h3 class="text-lg font-black text-slate-800 mb-1 flex items-center gap-2"><i class="fa-solid fa-comments text-blue-500"></i> เสียงสะท้อนจากนักเรียน (ข้อเสนอแนะ)</h3>
+            <p class="text-sm text-slate-500 mb-6">ความเห็นและคำแนะนำเพื่อการพัฒนา เรียงตามรายวิชา</p>
+            
+            <div id="comments-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar p-2">
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-indigo-900 to-slate-800 p-8 rounded-[2rem] shadow-lg border border-indigo-200 mb-8 text-white relative overflow-hidden">
+            <div class="absolute top-0 right-0 opacity-10 text-9xl transform translate-x-1/4 -translate-y-1/4"><i class="fa-solid fa-robot"></i></div>
+            
+            <div class="relative z-10 text-center mb-6">
+                <h3 class="text-2xl font-black text-white mb-2 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-sparkles text-amber-400"></i> AI สรุปผลและข้อเสนอแนะ
+                </h3>
+                <p class="text-sm text-indigo-200">ประมวลผลข้อมูลคะแนน ความพึงพอใจ และข้อเสนอแนะทั้งหมดด้วย Gemini AI</p>
+            </div>
+            
+            <div class="relative z-10 text-center">
+                <button id="aiAnalyzeBtn" onclick="generateAISummary()" class="bg-amber-500 hover:bg-amber-400 text-amber-900 font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:-translate-y-1 flex items-center justify-center mx-auto gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> <span>เริ่มการวิเคราะห์ด้วย AI</span>
+                </button>
+            </div>
+
+            <div id="aiLoading" class="hidden relative z-10 mt-6 text-center">
+                <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-300 border-t-amber-400"></div>
+                <p class="text-indigo-200 font-medium mt-3 animate-pulse">Gemini กำลังอ่านและวิเคราะห์ข้อมูล...</p>
+            </div>
+
+            <div id="aiOutput" class="hidden relative z-10 mt-8 bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 ai-content text-left">
+                </div>
+
+            <div id="aiError" class="hidden relative z-10 mt-6 bg-red-500/20 text-red-200 p-4 rounded-xl border border-red-500/30 text-center text-sm font-medium">
+                เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI กรุณาลองใหม่อีกครั้ง
+            </div>
+        </div>
+
+        <footer class="text-center py-6 border-t border-slate-200">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">โรงเรียนสันป่าตองวิทยาคม &bull; งานส่งเสริมความเป็นเลิศทางวิชาการ ม.6</p>
+        </footer>
+    </div>
+
+    <script>
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwswYEsc0M13Bp7EI9QLFstwRRB8f4LJ1eTyX_pt1DoWTWwzZJFgNDvh4ZqTxFf1F0/exec';
+        
+        // 🔑 API Key ของคุณครู
+        const apiKey = "AIzaSyBy8ZWPLrhCRSTy7Rg63Vhf-l1D1VPDchs"; 
+        
+        let rawData = [];
+        let filteredData = [];
+        let charts = {};
+        let currentStats = null; 
+        
+        let selectedRooms = [];
+        let selectedProjects = [];
+
+        // 🌟 ตั้งค่าระบบ Cache 24 ชั่วโมง
+        const CACHE_KEY = 'm6_academic_data_cache';
+        const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000; 
+
+        // ฟังก์ชันจัดการ Modal "อื่นๆ"
+        window.showOthersModal = function() {
+            const modal = document.getElementById('othersModal');
+            const contentDiv = document.getElementById('othersModalContent');
+            
+            if (window.currentOthersListHtml) {
+                contentDiv.innerHTML = window.currentOthersListHtml;
+            } else {
+                contentDiv.innerHTML = '<p class="text-center text-slate-500 py-4">ไม่มีข้อมูลเพิ่มเติม</p>';
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('othersModalBox').classList.remove('scale-95');
+            }, 10);
+        }
+
+        window.closeOthersModal = function() {
+            const modal = document.getElementById('othersModal');
+            modal.classList.add('opacity-0');
+            document.getElementById('othersModalBox').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // ปิด Modal เมื่อคลิกพื้นหลัง
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('othersModal');
+            if (e.target === modal) {
+                closeOthersModal();
+            }
+        });
+
+        function extractVal(row, possibleKeys, defaultVal = null) {
+            const rowKeys = Object.keys(row);
+            
+            for (let key of possibleKeys) {
+                const matchedKey = rowKeys.find(k => k.trim().toLowerCase() === key.trim().toLowerCase());
+                if (matchedKey !== undefined) return row[matchedKey];
+            }
+            
+            for (let key of possibleKeys) {
+                const matchedKey = rowKeys.find(k => k.toLowerCase().includes(key.trim().toLowerCase()));
+                if (matchedKey !== undefined) return row[matchedKey];
+            }
+            
+            return defaultVal;
+        }
+
+        function extractStr(row, possibleKeys, defaultVal) {
+            let val = extractVal(row, possibleKeys);
+            if (val === null || val === undefined || String(val).trim() === "") return defaultVal;
+            return String(val).trim();
+        }
+
+        function parseSatisfaction(val) {
+            if (val === null || val === undefined) return 0;
+            if (!isNaN(val) && String(val).trim() !== "") return parseFloat(val);
+            const strVal = String(val).trim().toLowerCase();
+            if (strVal === "") return 0;
+            const matchNumber = strVal.match(/^[0-5]/);
+            if (matchNumber) return parseInt(matchNumber[0], 10);
+            if (strVal.includes('มากที่สุด')) return 5;
+            if (strVal.includes('ปานกลาง')) return 3;
+            if (strVal.includes('มาก')) return 4;
+            if (strVal.includes('น้อยที่สุด')) return 1;
+            if (strVal.includes('น้อย')) return 2;
+            return 0;
+        }
+
+        function toggleDropdown(id) {
+            const el = document.getElementById(id);
+            document.querySelectorAll('.dropdown').forEach(d => {
+                if(d.id !== id) d.classList.remove('active');
+            });
+            el.classList.toggle('active');
+        }
+
+        // 🌟 ดึงข้อมูลพร้อมระบบ Cache และแจ้งเตือนรอนาน
+        async function fetchData(forceRefresh = false) {
+            const loader = document.getElementById('loading-screen');
+            const loaderText = document.getElementById('loading-text');
+            loader.style.display = 'flex';
+            void loader.offsetWidth;
+            loader.style.opacity = '1';
+            
+            const statusBadge = document.getElementById('conn-status');
+
+            // ตรวจสอบข้อมูลในเครื่อง (Cache) ก่อน
+            if (!forceRefresh) {
+                const cachedDataStr = localStorage.getItem(CACHE_KEY);
+                if (cachedDataStr) {
+                    try {
+                        const cachedData = JSON.parse(cachedDataStr);
+                        const now = new Date().getTime();
+                        
+                        // ถ้าข้อมูลยังไม่หมดอายุ (ไม่เกิน 24 ชม.)
+                        if (now - cachedData.timestamp < CACHE_EXPIRY_MS) {
+                            rawData = cachedData.data;
+                            
+                            const lastUpdate = new Date(cachedData.timestamp);
+                            const timeStr = `${lastUpdate.getHours().toString().padStart(2, '0')}:${lastUpdate.getMinutes().toString().padStart(2, '0')} น.`;
+                            
+                            statusBadge.innerHTML = `<i class="fa-solid fa-bolt"></i> โหลดจากเครื่อง (อัปเดต ${timeStr})`;
+                            statusBadge.className = "px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 bg-blue-100 text-blue-700 border border-blue-200";
+                            
+                            initializeFilters();
+                            applyFilters();
+                            
+                            setTimeout(() => {
+                                loader.style.opacity = '0';
+                                setTimeout(() => loader.style.display = 'none', 300);
+                            }, 300);
+                            
+                            return; // จบการทำงาน ไม่ต้องโหลดเน็ต
+                        }
+                    } catch (e) {
+                        console.log("Cache format error, re-fetching...");
+                    }
+                }
+            }
+
+            if (loaderText) loaderText.innerText = "กำลังดาวน์โหลดข้อมูลล่าสุดจากฐานข้อมูล...";
+            const waitingMsgId = setTimeout(() => {
+                if(loaderText) loaderText.innerText = "กำลังดาวน์โหลดข้อมูลจำนวนมาก... อาจใช้เวลาสักครู่";
+            }, 5000);
+
+            try {
+                // โหลดจนกว่าจะเสร็จ ไม่มี AbortController บังคับตัด
+                const response = await fetch(WEB_APP_URL);
+                clearTimeout(waitingMsgId); 
+
+                if (!response.ok) throw new Error("Network response was not ok");
+                const json = await response.json();
+                
+                if (json && json.length > 0) {
+                    rawData = json;
+                    
+                    // บันทึกข้อมูลลงในเครื่อง (Cache)
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({
+                        timestamp: new Date().getTime(),
+                        data: json
+                    }));
+
+                    statusBadge.innerHTML = `<i class="fa-solid fa-cloud-arrow-down"></i> อัปเดตล่าสุด (${json.length} แถว)`;
+                    statusBadge.className = "px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200";
+                    
+                    initializeFilters();
+                    applyFilters();
+                } else {
+                    throw new Error("No data found in sheet");
+                }
+            } catch (error) {
+                clearTimeout(waitingMsgId);
+                console.error("Data Fetch Error:", error);
+                
+                const cachedDataStr = localStorage.getItem(CACHE_KEY);
+                if (cachedDataStr) {
+                    const cachedData = JSON.parse(cachedDataStr);
+                    rawData = cachedData.data;
+                    statusBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ออฟไลน์ (แสดงข้อมูลเดิมในเครื่อง)`;
+                    statusBadge.className = "px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 bg-amber-100 text-amber-700 border border-amber-200";
+                    initializeFilters();
+                    applyFilters();
+                } else {
+                    statusBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถเชื่อมต่อฐานข้อมูลได้`;
+                    statusBadge.className = "px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-1.5 bg-red-100 text-red-700 border border-red-200";
+                    generateMockData();
+                }
+            } finally {
+                setTimeout(() => {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.style.display = 'none', 500);
+                    if(loaderText) loaderText.innerText = "กรุณารอสักครู่..."; // Reset text
+                }, 500);
+            }
+        }
+
+        function initializeFilters() {
+            const rooms = [...new Set(rawData.map(row => extractStr(row, ['ห้อง', 'ชั้น'], 'ไม่ระบุห้อง')))].sort();
+            const projects = [...new Set(rawData.map(row => extractStr(row, ['โครงการ', 'ทีม', 'เข้าร่วม'], 'ไม่ระบุโครงการ')))].sort();
+            
+            selectedRooms = [...rooms];
+            selectedProjects = [...projects];
+
+            buildChecklist('room-options', rooms, 'room', handleFilterChange);
+            buildChecklist('project-options', projects, 'project', handleFilterChange);
+            updateFilterLabels();
+        }
+
+        function buildChecklist(containerId, options, prefix, callback) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `
+                <div class="flex justify-between items-center p-2 border-b border-slate-100 mb-1 bg-slate-50 rounded-t-lg">
+                    <button type="button" onclick="toggleAllCheckboxes('${prefix}', true)" class="text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors uppercase px-2 py-1">เลือกทั้งหมด</button>
+                    <button type="button" onclick="toggleAllCheckboxes('${prefix}', false)" class="text-[10px] font-black text-slate-400 hover:text-slate-600 transition-colors uppercase px-2 py-1">ล้าง</button>
+                </div>
+            `;
+            
+            options.forEach(opt => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-md cursor-pointer transition-colors";
+                div.onclick = (e) => {
+                    const cb = div.querySelector('input');
+                    if (e.target !== cb) cb.checked = !cb.checked;
+                    callback();
+                };
+                div.innerHTML = `
+                    <input type="checkbox" checked value="${opt}" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 accent-indigo-600 cursor-pointer">
+                    <span class="text-sm font-bold text-slate-700 select-none">${opt}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        window.toggleAllCheckboxes = (prefix, state) => {
+            document.querySelectorAll(`#${prefix}-options input[type="checkbox"]`).forEach(cb => cb.checked = state);
+            handleFilterChange();
+        };
+
+        function handleFilterChange() {
+            const roomCbs = document.querySelectorAll('#room-options input:checked');
+            selectedRooms = Array.from(roomCbs).map(cb => cb.value);
+            
+            const projCbs = document.querySelectorAll('#project-options input:checked');
+            selectedProjects = Array.from(projCbs).map(cb => cb.value);
+            
+            updateFilterLabels();
+            applyFilters();
+
+            // รีเซ็ตหน้าจอ AI เมื่อเปลี่ยน Filter
+            document.getElementById('aiOutput').classList.add('hidden');
+            document.getElementById('aiOutput').innerHTML = '';
+            document.getElementById('aiError').classList.add('hidden');
+            document.getElementById('aiAnalyzeBtn').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> <span>เริ่มการวิเคราะห์ด้วย AI</span>';
+        }
+
+        function updateFilterLabels() {
+            const rLabel = document.getElementById('room-label');
+            const pLabel = document.getElementById('project-label');
+            
+            const totalR = document.querySelectorAll('#room-options input').length;
+            const totalP = document.querySelectorAll('#project-options input').length;
+
+            if(selectedRooms.length === 0) rLabel.innerText = "ไม่ได้เลือก";
+            else if(selectedRooms.length === totalR) rLabel.innerText = "ทุกห้อง";
+            else if(selectedRooms.length === 1) rLabel.innerText = selectedRooms[0];
+            else rLabel.innerText = `${selectedRooms.length} ห้อง`;
+
+            if(selectedProjects.length === 0) pLabel.innerText = "ไม่ได้เลือก";
+            else if(selectedProjects.length === totalP) pLabel.innerText = "ทุกโครงการ";
+            else if(selectedProjects.length === 1) pLabel.innerText = "1 โครงการ";
+            else pLabel.innerText = `${selectedProjects.length} โครงการ`;
+        }
+
+        function applyFilters() {
+            filteredData = rawData.filter(item => {
+                const room = extractStr(item, ['ห้อง', 'ชั้น'], 'ไม่ระบุห้อง');
+                const proj = extractStr(item, ['โครงการ', 'ทีม', 'เข้าร่วม'], 'ไม่ระบุโครงการ');
+                return selectedRooms.includes(room) && selectedProjects.includes(proj);
+            });
+
+            document.getElementById('filtered-count').innerHTML = `${filteredData.length} <span class="text-sm font-bold text-slate-500">รายการ</span>`;
+            
+            const stats = processDataForCharts(filteredData);
+            currentStats = stats; 
+            
+            updateKPIs(stats);
+            renderCharts(stats);
+            renderTutoringMethods(stats.tutoringMethods, stats.totalStudentsAnsweredMethod);
+            renderComments(stats.comments);
+        }
+
+        function processDataForCharts(data) {
+            const rooms = {};
+            const projects = {};
+            
+            let tgatSum = [0,0,0,0], cTgat = [0,0,0,0]; 
+            let tpatSum = [0,0,0,0,0], cTpat = [0,0,0,0,0]; 
+            
+            const subjects = {};
+            let globalSatSum = 0;
+            let globalSatCount = 0;
+            const comments = [];
+
+            const tutoringMethodsMap = {};
+            let totalStudentsAnsweredMethod = 0;
+
+            const desiredSubjectOrder = [
+                'ฟิสิกส์', 'เคมี', 'ชีววิทยา', 'วิทยาศาสตร์', 'คณิตศาสตร์', 'สังคม', 'ภาษาไทย', 'ภาษาอังกฤษ', 'รวม TGAT 1-3', 'ข้อเสนอแนะโดยรวม'
+            ];
+
+            const exactColumnMapping = [
+                { name: 'ฟิสิกส์', startCol: 15, commentCol: 20 },
+                { name: 'เคมี', startCol: 21, commentCol: 26 },
+                { name: 'ชีววิทยา', startCol: 27, commentCol: 32 },
+                { name: 'วิทยาศาสตร์', startCol: 33, commentCol: 38 },
+                { name: 'คณิตศาสตร์', startCol: 39, commentCol: 44 },
+                { name: 'สังคม', startCol: 45, commentCol: 50 },
+                { name: 'ภาษาไทย', startCol: 51, commentCol: 56 },
+                { name: 'ภาษาอังกฤษ', startCol: 57, commentCol: 62 },
+                { name: 'รวม TGAT 1-3', startCol: 63, commentCol: 68 }
+            ];
+
+            const fallbackKeywords = [
+                ['เนื้อหาตอบโจทย์', 'เนื้อหา', 'ตอบโจทย์', 'สาระ', 'ตรงประเด็น'], 
+                ['เรียนสนุก', 'สนุก', 'บรรยากาศ', 'น่าสนใจ', 'เพลิดเพลิน'], 
+                ['สอนได้ดี', 'สอนดี', 'เทคนิค', 'ถ่ายทอด', 'อธิบาย', 'การสอน'], 
+                ['วิทยากรเก่ง', 'วิทยากร', 'ผู้สอน', 'เชี่ยวชาญ', 'ความสามารถ'], 
+                ['มีส่วนร่วม', 'ส่วนร่วม', 'ปฏิสัมพันธ์', 'คุ้มค่า', 'ประโยชน์', 'สถานที่', 'เหมาะสม'] 
+            ];
+
+            data.forEach(row => {
+                const rowKeys = Object.keys(row);
+                
+                const r = extractStr(row, ['ห้อง', 'ชั้น'], 'ไม่ระบุ');
+                rooms[r] = (rooms[r] || 0) + 1;
+
+                const p = extractStr(row, ['โครงการ', 'ทีม', 'เข้าร่วม'], 'ไม่ระบุ');
+                projects[p] = (projects[p] || 0) + 1;
+
+                const tgatKeys = [['TGAT1', 'TGAT 1'], ['TGAT2', 'TGAT 2'], ['TGAT3', 'TGAT 3'], ['TGAT รวม', 'รวม TGAT', 'TGAT_รวม', 'TGATรวม']];
+                tgatKeys.forEach((keys, idx) => {
+                    let rawVal = extractVal(row, keys);
+                    if (rawVal !== null && rawVal !== undefined && String(rawVal).trim() !== "") {
+                        let val = Number(String(rawVal).replace(/,/g, '').trim());
+                        if (!isNaN(val) && val > 0) { tgatSum[idx] += val; cTgat[idx]++; }
+                    }
+                });
+
+                const tpatKeys = [['TPAT1', 'TPAT 1'], ['TPAT2', 'TPAT 2'], ['TPAT3', 'TPAT 3'], ['TPAT4', 'TPAT 4'], ['TPAT5', 'TPAT 5']];
+                tpatKeys.forEach((keys, idx) => {
+                    let rawVal = extractVal(row, keys);
+                    if (rawVal !== null && rawVal !== undefined && String(rawVal).trim() !== "") {
+                        let val = Number(String(rawVal).replace(/,/g, '').trim());
+                        if (!isNaN(val) && val > 0) { 
+                            // ปรับสเกล TPAT1 ให้หาร 3 เพื่อแปลงเป็นร้อยละ
+                            if (idx === 0) {
+                                val = val / 3;
+                            }
+                            tpatSum[idx] += val; 
+                            cTpat[idx]++; 
+                        }
+                    }
+                });
+
+                const useIndexMapping = rowKeys.length >= 68;
+
+                if (useIndexMapping) {
+                    exactColumnMapping.forEach(sm => {
+                        const subj = sm.name;
+                        if (!subjects[subj]) {
+                            subjects[subj] = [{sum: 0, count: 0}, {sum: 0, count: 0}, {sum: 0, count: 0}, {sum: 0, count: 0}, {sum: 0, count: 0}];
+                        }
+
+                        for (let i = 0; i < 5; i++) {
+                            let colKey = rowKeys[sm.startCol + i];
+                            let val = parseSatisfaction(row[colKey]);
+                            if (val > 0) {
+                                subjects[subj][i].sum += val;
+                                subjects[subj][i].count++;
+                                globalSatSum += val;
+                                globalSatCount++;
+                            }
+                        }
+
+                        let commentKey = rowKeys[sm.commentCol];
+                        let cText = row[commentKey];
+                        if (cText && String(cText).trim().length > 2) {
+                            comments.push({ subject: subj, text: String(cText).trim() });
+                        }
+                    });
+
+                    if (rowKeys.length >= 70) {
+                        let methodKey = rowKeys[69];
+                        let methodVal = row[methodKey];
+                        if (methodVal && String(methodVal).trim() !== "") {
+                            let methods = String(methodVal).split(',').map(m => m.trim()).filter(m => m !== "");
+                            if (methods.length > 0) {
+                                totalStudentsAnsweredMethod++;
+                                methods.forEach(m => {
+                                    tutoringMethodsMap[m] = (tutoringMethodsMap[m] || 0) + 1;
+                                });
+                            }
+                        }
+                    }
+
+                    if (rowKeys.length >= 71) {
+                        let bsKey = rowKeys[70];
+                        let bsText = row[bsKey];
+                        if (bsText && String(bsText).trim().length > 2) {
+                            comments.push({ subject: 'ข้อเสนอแนะโดยรวม', text: String(bsText).trim() });
+                        }
+                    }
+
+                } else {
+                    Object.keys(row).forEach(colKey => {
+                        if(!colKey || String(row[colKey]).trim() === "") return;
+                        
+                        let matchedSubject = null;
+                        for(let subj of desiredSubjectOrder) {
+                            if(colKey.includes(subj)) { matchedSubject = subj; break; }
+                        }
+                        
+                        if(matchedSubject && matchedSubject !== 'ข้อเสนอแนะโดยรวม') {
+                            let criterionIndex = -1;
+                            for(let i=0; i<fallbackKeywords.length; i++) {
+                                if(fallbackKeywords[i].some(kw => colKey.includes(kw))) {
+                                    criterionIndex = i;
+                                    break;
+                                }
+                            }
+                            if(criterionIndex !== -1) {
+                                if(!subjects[matchedSubject]) {
+                                    subjects[matchedSubject] = [{sum:0,count:0}, {sum:0,count:0}, {sum:0,count:0}, {sum:0,count:0}, {sum:0,count:0}];
+                                }
+                                let parsedScore = parseSatisfaction(row[colKey]);
+                                if(parsedScore > 0) {
+                                    subjects[matchedSubject][criterionIndex].sum += parsedScore;
+                                    subjects[matchedSubject][criterionIndex].count++;
+                                    globalSatSum += parsedScore;
+                                    globalSatCount++;
+                                }
+                            }
+                        }
+                    });
+
+                    let fallbackMethod = extractVal(row, ['วิธีการติว', 'รูปแบบ', 'ชอบที่สุด']);
+                    if (fallbackMethod && String(fallbackMethod).trim() !== "") {
+                        let methods = String(fallbackMethod).split(',').map(m => m.trim()).filter(m => m !== "");
+                        if (methods.length > 0) {
+                            totalStudentsAnsweredMethod++;
+                            methods.forEach(m => {
+                                tutoringMethodsMap[m] = (tutoringMethodsMap[m] || 0) + 1;
+                            });
+                        }
+                    }
+
+                    const cText = extractVal(row, ['เสนอแนะ', 'แนะนำ', 'ความเห็น']);
+                    if (cText && cText.toString().trim().length > 2) {
+                        let commentSubj = "ข้อเสนอแนะโดยรวม";
+                        desiredSubjectOrder.forEach(s => {
+                            if(cText.toString().includes(s)) commentSubj = s;
+                        });
+                        comments.push({ subject: commentSubj, text: cText.toString().trim() });
+                    }
+                }
+            });
+
+            const avgTgat = tgatSum.map((sum, i) => cTgat[i] ? (sum/cTgat[i]).toFixed(2) : 0);
+            const avgTpat = tpatSum.map((sum, i) => cTpat[i] ? (sum/cTpat[i]).toFixed(1) : 0);
+            
+            const formattedSubjects = Object.keys(subjects).map(name => {
+                const s = subjects[name];
+                return {
+                    name: name,
+                    c1: s[0].count ? (s[0].sum/s[0].count).toFixed(2) : 0,
+                    c2: s[1].count ? (s[1].sum/s[1].count).toFixed(2) : 0,
+                    c3: s[2].count ? (s[2].sum/s[2].count).toFixed(2) : 0,
+                    c4: s[3].count ? (s[3].sum/s[3].count).toFixed(2) : 0,
+                    c5: s[4].count ? (s[4].sum/s[4].count).toFixed(2) : 0
+                };
+            }).filter(s => s.c1 > 0 || s.c2 > 0 || s.c3 > 0 || s.c4 > 0 || s.c5 > 0);
+
+            formattedSubjects.sort((a, b) => {
+                let idxA = desiredSubjectOrder.indexOf(a.name);
+                let idxB = desiredSubjectOrder.indexOf(b.name);
+                if (idxA === -1) idxA = 999;
+                if (idxB === -1) idxB = 999;
+                return idxA - idxB;
+            });
+
+            comments.sort((a, b) => {
+                let idxA = desiredSubjectOrder.indexOf(a.subject);
+                let idxB = desiredSubjectOrder.indexOf(b.subject);
+                if (idxA === -1) idxA = 999;
+                if (idxB === -1) idxB = 999;
+                return idxA - idxB;
+            });
+
+            const formattedTutoringMethods = Object.keys(tutoringMethodsMap)
+                .map(key => ({ name: key, count: tutoringMethodsMap[key] }))
+                .sort((a, b) => b.count - a.count);
+
+            let totalTpatSum = tpatSum.reduce((acc, val) => acc + val, 0);
+            let totalTpatCount = cTpat.reduce((acc, val) => acc + val, 0);
+            let tpatOverall = totalTpatCount > 0 ? (totalTpatSum / totalTpatCount).toFixed(2) : "0.00";
+            
+            let overallSatAvg = globalSatCount > 0 ? (globalSatSum / globalSatCount) : 0;
+            let overallSatPercentage = (overallSatAvg * 20).toFixed(2);
+
+            return {
+                totalCount: data.length,
+                rooms: rooms,
+                projects: projects,
+                tgat: avgTgat,
+                tpat: avgTpat,
+                tpatOverall: tpatOverall,
+                subjects: formattedSubjects,
+                overallSatPerc: overallSatPercentage,
+                comments: comments,
+                tutoringMethods: formattedTutoringMethods,
+                totalStudentsAnsweredMethod: totalStudentsAnsweredMethod
+            };
+        }
+
+        function updateKPIs(stats) {
+            document.getElementById('kpi-students').innerText = stats.totalCount;
+            let tgatTot = stats.tgat[3];
+            document.getElementById('kpi-tgat').innerText = tgatTot > 0 ? tgatTot : "-";
+            document.getElementById('kpi-tpat').innerText = stats.tpatOverall > 0 ? stats.tpatOverall : "-";
+            document.getElementById('kpi-sat').innerText = stats.overallSatPerc > 0 ? `ร้อยละ ${stats.overallSatPerc}` : "ร้อยละ 0.00";
+
+            // อัปเดตข้อความใต้กราฟ TPAT ให้แสดงคะแนน TPAT1 จริง (เต็ม 300)
+            const realTpat1 = (parseFloat(stats.tpat[0] || 0) * 3).toFixed(1);
+            document.getElementById('tpat-subtitle').innerText = `คะแนน TPAT 1 เฉลี่ยจริง คือ ${realTpat1} (คะแนนเต็ม 300 คะแนน)`;
+        }
+
+        function renderTutoringMethods(methods, totalResponses) {
+            const container = document.getElementById('tutoring-methods-container');
+            
+            if (!methods || methods.length === 0) {
+                container.innerHTML = `<div class="col-span-full py-8 text-center text-slate-400 font-bold"><i class="fa-solid fa-chart-bar text-4xl mb-3 opacity-50 block"></i>ไม่มีข้อมูลรูปแบบการติวในกลุ่มที่เลือก</div>`;
+                return;
+            }
+
+            const top3 = methods.slice(0, 3);
+            const others = methods.slice(3);
+            
+            let othersCount = 0;
+            let othersListHtml = '';
+
+            if (others.length > 0) {
+                others.forEach(o => {
+                    othersCount += o.count;
+                    let p = totalResponses > 0 ? ((o.count / totalResponses) * 100).toFixed(1) : 0;
+                    othersListHtml += `
+                        <div class="flex justify-between items-center py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-2 rounded transition-colors">
+                            <span class="text-sm font-medium text-slate-700">${o.name}</span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-slate-400">${p}%</span>
+                                <span class="text-sm font-bold bg-slate-100 text-slate-600 px-3 py-1 rounded-full whitespace-nowrap">${o.count} คน</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                window.currentOthersListHtml = othersListHtml;
+
+                top3.push({
+                    name: 'อื่นๆ (คลิกเพื่อดู)',
+                    count: othersCount,
+                    isOther: true
+                });
+            }
+
+            container.className = `grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${top3.length} gap-6`;
+
+            const themeColors = ['bg-pink-500', 'bg-purple-500', 'bg-indigo-500', 'bg-slate-500'];
+            const lightThemeColors = ['bg-pink-50', 'bg-purple-50', 'bg-indigo-50', 'bg-slate-50'];
+            const textThemeColors = ['text-pink-700', 'text-purple-700', 'text-indigo-700', 'text-slate-700'];
+            const borderColors = ['border-pink-100', 'border-purple-100', 'border-indigo-100', 'border-slate-200'];
+            const icons = ['fa-trophy', 'fa-medal', 'fa-award', 'fa-plus-circle'];
+
+            container.innerHTML = top3.map((m, i) => {
+                let perc = totalResponses > 0 ? ((m.count / totalResponses) * 100).toFixed(1) : 0;
+                let rankText = m.isOther ? 'เพิ่มเติม' : `อันดับที่ ${i+1}`;
+                
+                let onclickAttr = m.isOther ? `onclick="showOthersModal()"` : '';
+                let cursorClass = m.isOther ? `cursor-pointer hover:ring-2 hover:ring-slate-300` : `cursor-default`;
+
+                return `
+                    <div ${onclickAttr} class="${lightThemeColors[i]} rounded-[1.5rem] p-6 border ${borderColors[i]} shadow-sm relative overflow-hidden flex flex-col justify-between hover-lift ${cursorClass} transition-all">
+                        <div class="absolute -right-4 -top-4 opacity-10 text-9xl ${textThemeColors[i]}"><i class="fa-solid ${icons[i]}"></i></div>
+                        <div class="relative z-10 mb-4">
+                            <div class="inline-block px-3 py-1 rounded-full bg-white/80 ${textThemeColors[i]} text-[10px] font-black uppercase tracking-widest mb-3 shadow-sm border ${borderColors[i]}">${rankText}</div>
+                            <h4 class="text-base font-bold ${textThemeColors[i]} leading-snug pr-6 truncate">${m.name}</h4>
+                        </div>
+                        <div class="relative z-10 mt-auto">
+                            <div class="flex justify-between items-end mb-2">
+                                <span class="text-3xl font-black ${textThemeColors[i]}">${m.count} <span class="text-[11px] font-bold opacity-60 uppercase tracking-widest">คน</span></span>
+                                <span class="text-sm font-bold ${textThemeColors[i]} opacity-80">${perc}%</span>
+                            </div>
+                            <div class="w-full bg-white/60 rounded-full h-2.5 shadow-inner">
+                                <div class="${themeColors[i]} h-2.5 rounded-full shadow-sm" style="width: ${perc}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderCharts(stats) {
+            Chart.defaults.font.family = "'Sarabun', sans-serif";
+            
+            const roomColors = ['#4f46e5', '#3b82f6', '#0ea5e9', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6'];
+            
+            if (charts['roomChart']) charts['roomChart'].destroy();
+            const ctxRoom = document.getElementById('roomChart').getContext('2d');
+            charts['roomChart'] = new Chart(ctxRoom, {
+                type: 'doughnut',
+                data: { labels: Object.keys(stats.rooms), datasets: [{ data: Object.values(stats.rooms), backgroundColor: roomColors, borderWidth: 3, borderColor: '#ffffff', hoverOffset: 5 }] },
+                options: { cutout: '65%', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { weight: 'bold', size: 12 } } }, tooltip: { callbacks: { label: function(context) { let label = context.label || ''; let val = context.raw; let total = context.chart._metasets[context.datasetIndex].total; let perc = ((val/total)*100).toFixed(1); return ` ${label}: ${val} คน (${perc}%)`; } } } } }
+            });
+
+            const projKeys = Object.keys(stats.projects).sort((a,b) => stats.projects[b] - stats.projects[a]);
+            const projColors = ['#4f46e5', '#cbd5e1', '#10b981', '#f59e0b'];
+            let totalProj = Object.values(stats.projects).reduce((a,b)=>a+b, 0);
+            const pDatasets = projKeys.map((k, i) => {
+                let count = stats.projects[k];
+                let perc = totalProj ? ((count/totalProj)*100).toFixed(1) : 0;
+                return { label: `${k} (${perc}%)`, data: [count], backgroundColor: projColors[i % projColors.length], borderRadius: projKeys.length > 1 ? (i===0 ? {topLeft:16, bottomLeft:16} : (i===projKeys.length-1 ? {topRight:16, bottomRight:16} : 0)) : 16, barPercentage: 0.8 };
+            });
+
+            if (charts['projectChart']) charts['projectChart'].destroy();
+            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            charts['projectChart'] = new Chart(ctxProj, {
+                type: 'bar',
+                data: { labels: ['สัดส่วนโครงการ'], datasets: pDatasets },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { stacked: true, display: false }, y: { stacked: true, display: false } } }
+            });
+
+            const legHtml = projKeys.map((k, i) => `
+                <div class="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-4 h-4 rounded-full shadow-sm" style="background-color: ${projColors[i % projColors.length]}"></div>
+                        <span class="text-sm font-bold text-slate-700 truncate max-w-[150px]" title="${k}">${k}</span>
+                    </div>
+                    <div class="font-black text-slate-800">${stats.projects[k]} <span class="text-xs font-medium text-slate-400">คน</span></div>
+                </div>
+            `).join('');
+            document.getElementById('project-legend').innerHTML = legHtml;
+
+            // 🌟 กราฟใยแมงมุม TGAT
+            const tgatScores = [parseFloat(stats.tgat[0] || 0), parseFloat(stats.tgat[1] || 0), parseFloat(stats.tgat[2] || 0)];
+            const maxTgatScore = Math.max(...tgatScores, 0.1); 
+
+            if (charts['tgatChart']) charts['tgatChart'].destroy();
+            const ctxTgat = document.getElementById('tgatChart').getContext('2d');
+            charts['tgatChart'] = new Chart(ctxTgat, {
+                type: 'radar',
+                data: {
+                    labels: ['TGAT1 (สื่อสาร)', 'TGAT2 (คิด)', 'TGAT3 (สมรรถนะ)'],
+                    datasets: [{
+                        label: 'คะแนนเฉลี่ย',
+                        data: tgatScores,
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        borderColor: '#f59e0b',
+                        pointBackgroundColor: '#f59e0b',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#f59e0b',
+                        borderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 15 },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(0,0,0,0.05)' },
+                            grid: { color: 'rgba(0,0,0,0.05)' },
+                            pointLabels: { font: { family: 'Sarabun', weight: 'bold', size: 11 }, color: '#475569' },
+                            min: 0,
+                            max: maxTgatScore, 
+                            ticks: { display: false } 
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                },
+                plugins: [{
+                    id: 'showScoresOnRadar',
+                    afterDatasetsDraw(chart) {
+                        const { ctx, data } = chart;
+                        ctx.save();
+                        ctx.font = 'bold 13px Sarabun';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        const meta = chart.getDatasetMeta(0);
+                        meta.data.forEach((datapoint, index) => {
+                            const value = data.datasets[0].data[index];
+                            if (value > 0) {
+                                const centerX = chart.scales.r.xCenter;
+                                const centerY = chart.scales.r.yCenter;
+                                const angle = Math.atan2(datapoint.y - centerY, datapoint.x - centerX);
+                                const x = datapoint.x - Math.cos(angle) * 20; 
+                                const y = datapoint.y - Math.sin(angle) * 20;
+                                
+                                ctx.lineWidth = 3;
+                                ctx.strokeStyle = '#ffffff';
+                                ctx.strokeText(value, x, y);
+                                
+                                ctx.fillStyle = '#b45309';
+                                ctx.fillText(value, x, y);
+                            }
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            // กราฟแท่ง TPAT
+            if (charts['tpatChart']) charts['tpatChart'].destroy();
+            const ctxTpat = document.getElementById('tpatChart').getContext('2d');
+            charts['tpatChart'] = new Chart(ctxTpat, {
+                type: 'bar',
+                data: {
+                    labels: ['กสพท', 'ศิลปกรรม', 'วิศวกรรม', 'สถาปัตย์', 'ครุศาสตร์'],
+                    datasets: [{
+                        label: 'คะแนนเฉลี่ย',
+                        data: stats.tpat,
+                        backgroundColor: '#10b981',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 25 } }, 
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { borderDash: [4,4], color: '#f1f5f9' }, border: { display: false } },
+                        x: { grid: { display: false }, border: { display: false }, ticks: { font: { weight: 'bold' } } }
+                    }
+                },
+                plugins: [{
+                    id: 'showScoresOnBars',
+                    afterDatasetsDraw(chart) {
+                        const { ctx, data } = chart;
+                        ctx.save();
+                        ctx.font = 'bold 12px Sarabun';
+                        ctx.fillStyle = '#065f46';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        chart.getDatasetMeta(0).data.forEach((datapoint, index) => {
+                            const value = data.datasets[0].data[index];
+                            if (value > 0) { 
+                                ctx.fillText(value, datapoint.x, datapoint.y - 5);
+                            }
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            // กราฟความพึงพอใจ
+            const subjNames = stats.subjects.map(s => s.name);
+            if (charts['satisfactionChart']) charts['satisfactionChart'].destroy();
+            const ctxSat = document.getElementById('satisfactionChart').getContext('2d');
+            charts['satisfactionChart'] = new Chart(ctxSat, {
+                type: 'bar',
+                data: {
+                    labels: subjNames,
+                    datasets: [
+                        { label: 'เนื้อหาตอบโจทย์', data: stats.subjects.map(s=>s.c1), backgroundColor: '#3b82f6', borderRadius: 4 },
+                        { label: 'เรียนสนุก', data: stats.subjects.map(s=>s.c2), backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'สอนได้ดี', data: stats.subjects.map(s=>s.c3), backgroundColor: '#f59e0b', borderRadius: 4 },
+                        { label: 'วิทยากรเก่ง', data: stats.subjects.map(s=>s.c4), backgroundColor: '#8b5cf6', borderRadius: 4 },
+                        { label: 'มีส่วนร่วม', data: stats.subjects.map(s=>s.c5), backgroundColor: '#f43f5e', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'top', labels: { font: { weight: 'bold', size: 10 }, usePointStyle: true, boxWidth: 8 } } 
+                    },
+                    scales: {
+                        y: { min: 2.5, max: 5, grid: { borderDash: [4,4], color: '#f1f5f9' }, border: { display: false } }, 
+                        x: { grid: { display: false }, border: { display: false }, ticks: { font: { weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        function renderComments(comments) {
+            const container = document.getElementById('comments-container');
+            if (comments.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-bold"><i class="fa-solid fa-comment-slash text-4xl mb-3 opacity-50 block"></i>ไม่มีข้อเสนอแนะในกลุ่มข้อมูลที่เลือก</div>`;
+                return;
+            }
+
+            container.innerHTML = comments.map(c => `
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 relative group hover:bg-white hover:shadow-lg transition-all duration-300 flex flex-col">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+                    <div class="mb-3">
+                        <span class="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest rounded-full">${c.subject}</span>
+                    </div>
+                    <p class="text-sm text-slate-700 leading-relaxed font-medium flex-grow"><i class="fa-solid fa-quote-left text-slate-300 mr-1"></i> ${c.text} <i class="fa-solid fa-quote-right text-slate-300 ml-1"></i></p>
+                </div>
+            `).join('');
+        }
+
+        // 🤖 --- ฟีเจอร์ AI แบบสลับโมเดลอัจฉริยะ ---
+        async function generateAISummary() {
+            const btn = document.getElementById('aiAnalyzeBtn');
+            const loading = document.getElementById('aiLoading');
+            const output = document.getElementById('aiOutput');
+            const errorContainer = document.getElementById('aiError');
+
+            if(!currentStats || currentStats.totalCount === 0) {
+                alert("ไม่มีข้อมูลให้ AI ทำการวิเคราะห์ กรุณาปรับตัวกรองข้อมูล");
+                return;
+            }
+
+            btn.classList.add('hidden');
+            errorContainer.classList.add('hidden');
+            output.classList.add('hidden');
+            loading.classList.remove('hidden');
+
+            const safeComments = currentStats.comments.slice(0, 40).map(c => {
+                let safeText = c.text.replace(/["'{}]/g, ''); 
+                return `[วิชา ${c.subject}] ${safeText}`;
+            }).join('\n');
+
+            const summaryData = `
+ข้อมูลโดยสรุป:
+- จำนวนนักเรียนทั้งหมด: ${currentStats.totalCount} คน
+- คะแนนเฉลี่ย TGAT: ${currentStats.tgat[3]}
+- คะแนนเฉลี่ย TPAT โดยรวม: ${currentStats.tpatOverall}
+- ความพึงพอใจภาพรวม: ${currentStats.overallSatPerc}%
+- รูปแบบการติวที่นักเรียนชอบ (จัดอันดับ): ${currentStats.tutoringMethods.map(m => `${m.name} (${m.count} คน)`).join(', ')}
+
+ข้อเสนอแนะจากนักเรียน:
+${safeComments}
+            `;
+
+            const promptText = `โปรดวิเคราะห์ข้อมูลผลการประเมินการติวของนักเรียน ม.6 ต่อไปนี้อย่างละเอียด:\n\n${summaryData}\n\nกรุณาสรุปข้อมูลและเขียนผลตอบกลับในรูปแบบ 4 หัวข้อดังนี้:\n1. ภาพรวมโครงการ\n2. จุดเด่นของการดำเนินการ\n3. ส่วนที่ควรพัฒนาปรับปรุง (วิเคราะห์จากข้อเสนอแนะ)\n4. แนวทางและข้อเสนอแนะสำหรับการจัดกิจกรรมครั้งต่อไป`;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: {
+                    role: "system",
+                    parts: [{ text: "คุณคือผู้เชี่ยวชาญด้านการศึกษาและนักวิเคราะห์ข้อมูล มีหน้าที่สรุปผลประเมินโครงการติววิชาการ เพื่อนำเสนอต่อผู้บริหารสถานศึกษา คณะครู ผู้ปกครอง และนักเรียน ใช้ภาษาไทยที่สุภาพ เป็นทางการแต่อ่านเข้าใจง่ายสำหรับทุกกลุ่มเป้าหมาย **ห้ามใช้คำลงท้าย เช่น 'ครับ', 'คะ', 'ค่ะ' อย่างเด็ดขาด** พร้อมใส่ Emojis ประกอบตามความเหมาะสม และจัดรูปแบบตัวหนา/หัวข้อด้วย Markdown ให้สวยงาม" }]
+                },
+                generationConfig: { temperature: 0.7 }
+            };
+
+            const apiUrl = apiKey && apiKey !== "" 
+                ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
+                : `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : ''}`;
+
+            let retries = 3;
+            let delay = 1000;
+            let success = false;
+            let responseData = null;
+            let errorMessage = "เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI กรุณาลองใหม่อีกครั้ง";
+
+            while(retries > 0 && !success) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        console.error(`API Error (${response.status}):`, errorBody);
+                        if (response.status === 403 || response.status === 400) {
+                            errorMessage = "API Key ไม่ถูกต้องหรือไม่ได้รับอนุญาต";
+                            break; 
+                        }
+                        if (response.status === 404) {
+                            errorMessage = "ไม่พบโมเดล AI ที่ระบุ อาจมีการเปลี่ยนแปลงเวอร์ชัน";
+                            break;
+                        }
+                        throw new Error(`API Error ${response.status}`);
+                    }
+
+                    responseData = await response.json();
+                    success = true;
+                } catch (error) {
+                    console.warn(`Retry failed. Retries left: ${retries - 1}`, error);
+                    retries--;
+                    if (retries === 0) break;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+
+            loading.classList.add('hidden');
+            btn.classList.remove('hidden');
+
+            if (success && responseData && responseData.candidates && responseData.candidates.length > 0) {
+                const text = responseData.candidates[0]?.content?.parts[0]?.text || "ไม่สามารถสร้างสรุปได้ในขณะนี้";
+                output.innerHTML = marked.parse(text); 
+                output.classList.remove('hidden');
+                btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> <span>วิเคราะห์ใหม่อีกครั้ง</span>';
+            } else {
+                errorContainer.innerText = errorMessage;
+                errorContainer.classList.remove('hidden');
+            }
+        }
+
+        function generateMockData() {
+            const mock = [];
+            const rooms = ['6/1', '6/2', '6/3', '6/4', '6/5'];
+            const projs = ['โครงการสานฝันสู่มหาวิทยาลัย', 'โครงการติวเข้ม O-NET/A-Level'];
+            const subjs = ['คณิตศาสตร์', 'ฟิสิกส์', 'ภาษาอังกฤษ', 'ชีววิทยา', 'เคมี'];
+            const feedback = [
+                'อยากให้เพิ่มแนวโจทย์ที่ซับซ้อนขึ้น', 'สอนสนุกมาก เข้าใจง่ายกว่าเรียนในห้อง', 
+                'แอร์ห้องประชุมหนาวไปนิดนึง', 'วิทยากรอธิบายเนื้อหาละเอียดดีมาก ได้เทคนิคเยอะเลย',
+                'เอกสารประกอบการเรียนดีมาก แต่อยากให้มีเฉลยละเอียดแนบมาด้วย', 'อยากให้มีรอบติวตะลุยโจทย์เพิ่ม'
+            ];
+            const methodsOptions = [
+                'ทำโจทย์ข้อสอบเก่า (ตะลุยโจทย์)', 
+                'สรุปเนื้อหาแบบรวบรัด (Mindmap)', 
+                'แจกเทคนิคการจำลัด', 
+                'เล่นเกมตอบคำถาม (Kahoot/Blooket)', 
+                'แบ่งกลุ่มย่อยช่วยกันติว',
+                'สอนแบบไลฟ์สดสลับวิดีโอ',
+                'แจกชีทสรุปสีสันสวยงาม'
+            ];
+
+            for(let i=0; i<65; i++) {
+                let rTGAT1 = Math.random()*40+40;
+                let rTGAT2 = Math.random()*30+50;
+                let rTGAT3 = Math.random()*20+70;
+                
+                let mockRow = {
+                    'ห้อง': rooms[Math.floor(Math.random()*rooms.length)],
+                    'โครงการ': projs[i < 40 ? 0 : 1],
+                    'TGAT1': rTGAT1.toFixed(0),
+                    'TGAT2': rTGAT2.toFixed(0),
+                    'TGAT3': rTGAT3.toFixed(0),
+                    'TGAT_รวม': ((rTGAT1+rTGAT2+rTGAT3)/3).toFixed(0),
+                    'TPAT1': (Math.random()*150+90).toFixed(0), 
+                    'TPAT3': (Math.random()*40+40).toFixed(0),
+                    'วิธีการติว': methodsOptions[Math.floor(Math.random()*methodsOptions.length)]
+                };
+
+                let sCount = Math.floor(Math.random()*2) + 1;
+                for(let j=0; j<sCount; j++) {
+                    let sName = subjs[Math.floor(Math.random()*subjs.length)];
+                    mockRow[`${sName} - เนื้อหาตอบโจทย์`] = "5 มากที่สุด";
+                    mockRow[`${sName} - เรียนสนุก`] = "4 มาก";
+                    mockRow[`${sName} - สอนได้ดี`] = "4 มาก";
+                    mockRow[`${sName} - วิทยากรเก่ง`] = "5 มากที่สุด";
+                    mockRow[`${sName} - มีส่วนร่วม`] = "3 ปานกลาง";
+                    mockRow[`คอมเมนต์${sName}`] = Math.random() > 0.5 ? feedback[Math.floor(Math.random()*feedback.length)] : '';
+                }
+
+                mock.push(mockRow);
+            }
+            rawData = mock;
+            initializeFilters();
+            applyFilters();
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchData);
+    </script>
+</body>
+</html>
